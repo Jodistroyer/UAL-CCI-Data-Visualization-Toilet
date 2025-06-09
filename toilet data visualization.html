@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Room with Bacteria Visualization - First Person</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif;}
+        canvas { display: block; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            pointer-events: none; 
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin-left: -10px;
+            margin-top: -10px;
+            color: black;
+            font-size: 20px;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        #main-title{
+            font-size: 60px;
+        }
+        #main-description{
+            font-size: 26px;
+        }
+        #description-box {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 300px;
+            background-color: rgba(0, 0, 0, 1);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 22px;
+            display: none;
+            pointer-events: none;
+            z-index: 100;
+        }
+        #description-box p {
+            margin: 0;
+        }
+        #fixture-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #00ffcc;
+        }
+        #cfu-header {
+            font-size: 38px;
+            font-weight: bold;
+            color: #00ffcc;
+        }
+        #start-overlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        pointer-events: auto;
+        }
+
+        .overlay-content {
+        text-align: center;
+        color: white;
+        pointer-events: auto;
+        }
+
+        #overlay-next-button {
+        margin-top: 20px;
+        pointer-events: auto;
+        z-index: 10000;
+        }
+
+        #overlay-next-button{
+            padding: 10px 20px;
+            font-family: Arial, sans-serif;
+            font-size: 50px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 3px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        /* Tooltip styles */
+        #tooltip-modal {
+            position: absolute;
+            background: rgba(0,0,0,1);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            max-width: 260px;
+            font-size: 18px;
+            z-index: 10001;
+            pointer-events: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 3px solid red;
+        }
+
+        #tooltip-next {
+            margin-top: 10px;
+            background-color: white;
+            color: black;
+            border: none;
+            padding: 6px 12px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        /* Ripple effect wrapper */
+        .ripple-wrapper {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+        .ripple {
+            position: absolute;
+            border: 2px solid #FF0000;
+            border-radius: 50%;
+            opacity: 0;
+            transform: translate(-50%, -50%);
+            animation: ripple-animation 2s ease-out infinite;
+        }
+
+        .ripple:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .ripple:nth-child(2) {
+            animation-delay: 0.5s;
+        }
+        
+        .ripple:nth-child(3) {
+            animation-delay: 1s;
+        }
+
+        @keyframes ripple-animation {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 0.8;
+            }
+            100% {
+                width: 100px;
+                height: 100px;
+                opacity: 0;
+            }
+        }
+
+        /* Demo elements */
+        #navigation-controls, #exploration-toggle, #prev-button {
+            padding: 15px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        #gui-ripple-container{
+            position: absolute;
+            width: 246px;
+            top: 60px;
+            left: 10px;
+            transform: scale(0.75);
+            transform-origin: top left;
+        }
+
+        /* For demo purposes - highlight target */
+        .highlight-target {
+            box-shadow: 0 0 0 2px #FF0000;
+        }
+        
+        #navigation-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        #navigation-controls button {
+            padding: 10px 20px;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 3px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        #navigation-controls button:hover {
+            background-color: rgba(50, 50, 50, 0.7);
+        }
+        
+        #exploration-toggle {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            border: 3px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 100;
+        }
+        
+        #exploration-toggle.active {
+            background-color: rgba(50, 150, 50, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        WASD: Move | Mouse: Look | Space: Jump | Shift: Run | Esc: Unlock Pointer | Click to Lock Pointer
+    </div>
+
+    <!-- Start Intro Overlay -->
+    <div id="start-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column;
+        justify-content: center; align-items: center; z-index: 9999;">
+
+        <div style="pointer-events: none; text-align: center; color: white;">
+            <h1 id="main-title">How Dirty Is Your Toilet?</h1>
+            <p id="main-description">
+                Step into a microscopic world inside the toilet.<br><br>
+                We're visualizing <strong>Colony Forming Units (CFUs)</strong> — a scientific way to count clusters of live bacteria that can grow and multiply.<br><br>
+                Each glowing spot you see represents a bacterial colony found in common toilet areas.<br><br>
+                Some surfaces may surprise you...<br>
+            </p>
+        </div>
+
+        <button id="overlay-next-button" style="margin-top: 20px; pointer-events: auto; z-index: 10000;">
+            Explore
+        </button>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip-modal" style="display: none;">
+        <div id="tooltip-text"></div>
+        <button id="tooltip-next">OK</button>
+    </div>
+
+    <!-- Ripple effect container -->
+    <div id="ripple-container" class="ripple-wrapper"></div>
+    <div id="gui-ripple-container"></div>
+
+
+    <div id="crosshair" class="crosshair">❌</div>
+
+    <!-- Description box -->
+    <div id="description-box">
+        <p id="fixture-title"></p>
+        <p id="cfu-header"></p>
+        <p id="description-text"></p>
+    </div>
+
+    <!-- Navigation controls -->
+    <div id="navigation-controls">
+        <button id="prev-button">Previous</button>
+        <button id="next-button">Next</button>
+    </div>
+    
+    <button id="exploration-toggle">Toggle Free Exploration: ON</button>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
+    <script>
+        // --- Global Variables ---
+
+        // Basic Setup
+        let scene, camera, renderer, controls;
+        let descriptionBoxElement, descriptionTextElement;
+
+        // Movement Setup
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let canJump = true, isRunning = false;
+        let velocity = new THREE.Vector3();
+        const moveSpeed = 8;
+        const runMultiplier = 1.8;
+        const clock = new THREE.Clock();
+
+        // Room Setup
+        const roomWidth = 4;
+        const roomHeight = 4;
+        const roomDepth = 3;
+
+        // Crosshair Setup
+        const crosshair = document.createElement('div');
+        crosshair.id = 'crosshair';
+        crosshair.classList.add('crosshair');
+        document.body.appendChild(crosshair);
+
+        // Setup Containers
+        let raycaster, mouse;
+        let intersectedObject = null; // To keep track of the currently highlighted object
+        const originalMaterials = {}; // To store original materials of highlighted objects
+        let highlightMaterial; // The material to apply for highlighting
+        let highlightableObjects = []; // Array to store objects that can be highlighted
+        const visualizedFixtures = []; // Array to hold references to meshes and their bacteria clouds
+        
+        // Navigation variables
+        let currentFixtureIndex = 0;
+        let isInFreeMode = true;
+        let cameraMoving = false;
+        let originalControlsEnabled;
+
+        // --- Bacteria Management ---
+        const bacteriaLevels = {
+            // Toilet
+            toiletBowlUnder: 80,
+            toiletSeat: 150,
+            toiletFlushButton: 20,
+            // Sink
+            sinkBasinWalls: 50000,
+            sinkTap: 1000,
+            // Mirror
+            mirrorSurface: 9,
+            // Vent
+            ventBase: 30,
+            // Hand Dryer
+            handDryerBody: 80,
+            // Waste Bin
+            wasteBinBody: 150,
+            // TP Dispenser
+            tpDispenserRoll: 220,
+            // Hand Rail
+            curvedHandRail: 360,
+            // Radiator
+            radiatorBody: 1200,
+            // Room Surfaces
+            floor: 200,
+            backWall: 170,
+            frontWall: 170,
+            leftWall: 170,
+            rightWall: 170,
+        };
+
+        const objectDescriptions = {
+            toiletBowlUnder: "**CFU: 80**\nJust outside the splash zone. The bacteria here are mostly spectators—watching the chaos, rarely joining in.",
+            
+            toiletSeat: "**CFU: 150**\nThis is the red carpet of restroom royalty. Every visitor makes contact. Every germ gets a front-row seat.",
+            
+            toiletFlushButton: "**CFU: 20**\nPressed, poked, punched… but rarely wiped. A tiny germ gym where bacteria do push-ups in peace.",
+            
+            sinkBasinBottomFlat: "**CFU: 50,000**\nWelcome to Germ City. The walls are slimy highways—constant splash traffic, high moisture, perfect conditions for bacterial boomtowns.",
+            
+            sinkBasinWalls: "**CFU: 50,000**\nWelcome to Germ City. The walls are slimy highways—constant splash traffic, high moisture, perfect conditions for bacterial boomtowns.",
+            
+            sinkTap: "**CFU: 1,000**\nIt sees all but cleans none. The bacteria here live like smug security guards watching you wash... poorly.",
+            
+            mirrorSurface: "**CFU: 9**\nReflections don’t lie, but this surface does—looks clean, but a few stealthy germs are practicing invisibility.",
+            
+            ventBase: "**CFU: 30**\nAirborne hitchhikers gather here, clinging to dust like it's first class. Not many, but the ones here travel far.",
+            
+            handDryerBody: "**CFU: 80**\nYou dry your hands. The germs dry their hands too. Everyone’s winning, sort of.",
+            
+            wasteBinBody: "**CFU: 150**\nThe final stop for regrets and tissue paper. Germs here are bold, stubborn, and slightly offended you never sanitized after touching them.",
+            
+            tpDispenserRoll: "**CFU: 220**\nIt’s wrapped in trust, but every hand that reaches leaves a little bit behind. A germy roulette wheel you spin daily.",
+            
+            curvedHandRail: "**CFU: 360**\nThe unsung hero of balance... and bacteria. Every grip is a handshake with yesterday’s visitors.",
+            
+            radiatorBody: "**CFU: 1,200**\nWarmth + moisture = party. Germs are doing backflips in their hot yoga studio. You just don’t see it.",
+            
+            floor: "**CFU: 200**\nThe great collector. Water, hair, dirt, mystery goo—it welcomes all. Germs here enjoy foot traffic like a theme park parade.",
+            
+            backWall: "**CFU: 170**\nSilent, still, and slightly suspicious. It’s where splashes go to retire and bacteria go to nap.",
+            
+            frontWall: "**CFU: 170**\n‘The unexpected backsplash zone.’ Calm on the surface, but carrying history in droplets.",
+            
+            leftWall: "**CFU: 170**\nThis wall has seen things... mainly sneezes. Its bacteria are wise and well-settled.",
+            
+            rightWall: "**CFU: 170**\nEqually cultured as the left, just with slightly more elbow grease residue. A quiet germ retirement home.",
+            
+        };
+
+
+
+        // --- Initialization ---
+        init();
+        animate();
+
+        function init() {
+            
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xcccccc);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.7, 1); // Start slightly back
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+            document.body.appendChild(renderer.domElement);
+
+            // --- Raycaster and Highlight Material Setup ---
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2(0, 0);// For PointerLockControls, the "mouse" or picking point is always the center of the screen
+            highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xFFC0CB });
+
+            
+            // --- Get Description Box Elements ---
+            descriptionBoxElement = document.getElementById('description-box');
+            descriptionTextElement = document.getElementById('cfu-header');
+            descriptionTextElement = document.getElementById('description-text');
+            if (!descriptionBoxElement || !descriptionTextElement) {
+                console.error("Description box elements not found!");
+            }
+
+            // --- First person controls setup ---
+            controls = new THREE.PointerLockControls(camera, document.body);
+            scene.add(controls.getObject()); // Add camera group to scene
+
+            // Click to start controls
+            document.addEventListener('click', function(event) {
+                const overlay = document.getElementById('start-overlay');
+                
+                // If overlay is visible, ignore click
+                if (overlay && overlay.style.display !== 'none') return;
+
+                // Only lock controls if in free exploration mode and not currently moving
+                if (isInFreeMode && !cameraMoving) {
+                    controls.lock();
+                }
+            });
+
+            // --- Overlay Intro Setup ---
+            document.getElementById("overlay-next-button").addEventListener("click", () => {
+            document.getElementById("start-overlay").style.display = "none";
+            showTooltipStep(0);
+        });
+        
+        // --- Tool Tip Demo ---
+        const steps = [
+            {
+                element: '#navigation-controls',
+                text: 'Click to toggle around toilet',
+                position: 'top'
+            },
+            {
+                element: '#exploration-toggle',
+                text: 'Toggle between Guided Mode and Free Exploration.',
+                position: 'bottom'
+            },
+            {
+                element: '#gui-ripple-container',
+                text: 'Click to control and see Bacteria Levels',
+                position: 'right'
+            }
+        ];
+
+        let currentStep = 0;
+
+        function showTooltipStep(stepIndex) {
+            // Hide all previous ripples and highlights
+            document.getElementById("ripple-container").innerHTML = '';
+            document.querySelectorAll('.highlight-target').forEach(el => {
+                el.classList.remove('highlight-target');
+            });
+            
+            if (stepIndex >= steps.length) {
+                document.getElementById("tooltip-modal").style.display = "none";
+                return;
+            }
+ 
+            const step = steps[stepIndex];
+            const target = document.querySelector(step.element);
+            if (!target) return;
+ 
+            // Add highlighting to the current target
+            target.classList.add('highlight-target');
+            
+            const rect = target.getBoundingClientRect();
+            const tooltip = document.getElementById("tooltip-modal");
+            const text = document.getElementById("tooltip-text");
+            const pos = step.position || 'bottom'; // default to bottom
+ 
+            tooltip.style.display = "block";
+            text.innerText = step.text;
+ 
+            // Reset
+            tooltip.style.top = 'auto';
+            tooltip.style.left = 'auto';
+            tooltip.style.right = 'auto';
+            tooltip.style.bottom = 'auto';
+ 
+            // Calculate position
+            const padding = 10;
+            switch (pos) {
+                case 'top':
+                    tooltip.style.bottom = (window.innerHeight - rect.top + padding) + 'px';
+                    tooltip.style.left = (rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px';
+                    break;
+                case 'bottom':
+                    tooltip.style.top = (rect.bottom + padding) + 'px';
+                    tooltip.style.left = (rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px';
+                    break;
+                case 'left':
+                    tooltip.style.top = (rect.top + rect.height/2 - tooltip.offsetHeight/2) + 'px';
+                    tooltip.style.right = (window.innerWidth - rect.left + padding) + 'px';
+                    break;
+                case 'right':
+                    tooltip.style.top = (rect.top + rect.height/2 - tooltip.offsetHeight/2) + 'px';
+                    tooltip.style.left = (rect.right + padding) + 'px';
+                    break;
+            }
+ 
+            // Create ripple effect
+            createRippleEffect(target);
+ 
+            document.getElementById("tooltip-next").onclick = () => {
+                currentStep++;
+                showTooltipStep(currentStep);
+            };
+        }
+        
+        function createRippleEffect(target) {
+            const rect = target.getBoundingClientRect();
+            const rippleContainer = document.getElementById("ripple-container");
+            
+            // Center position for the ripples
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            // Position the ripple container
+            rippleContainer.style.left = centerX + 'px';
+            rippleContainer.style.top = centerY + 'px';
+            
+            // Create multiple ripples for a continuous effect
+            for (let i = 0; i < 3; i++) {
+                const ripple = document.createElement('div');
+                ripple.className = 'ripple';
+                rippleContainer.appendChild(ripple);
+            }
+        }
+        
+        // --- Function Setups ---
+            // Keyboard controls listeners
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            // Create room, toilet, fixtures
+            createRoom(roomWidth, roomHeight, roomDepth);
+            createBathroomFixtures(roomWidth, roomHeight, roomDepth); // Pass dimensions
+
+            // Add lighting
+            createLighting();
+
+            // --- Crucial Bacteria Setup ---
+            // 1. Initial bacteria visualization based on default levels
+            updateAllBacteriaVisualizations();
+
+            // 2. Setup GUI controls
+            setupBacteriaGUI();
+            // --- End Crucial Bacteria Setup ---
+
+            // --- Initialize DOM elements ---
+            initDOMElements();
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+// --- Bacteria Visualization Functions ---
+
+// Function to get color hex based on CFU value
+function getCFUColor(cfuValue) {
+    if (cfuValue > 10000) return '#8B0000';   // Dark Red (extremely high)
+    if (cfuValue > 900) return '#ff0000';    // Red (very high)
+    if (cfuValue > 300) return '#ff9900';    // Orange (high)
+    if (cfuValue > 100) return '#a0522d';    // Lighter sienna brown (moderate-high)
+    if (cfuValue > 50)  return '#a64ca6';    // Lighter purple (moderate)
+    return '#006400';                        // Dark green (very low)
+}
+
+// Function to create bacteria particles (returns the Points object)
+
+// This function does the magic: it generates a floating cloud of bacteria particles on top of a mesh's surface.
+// Each point gets randomly sampled based on triangle surface area to ensure even and natural spread.
+function createBacteriaCloud(geometry, exactParticleCount, fixtureName) {
+
+    // Don't waste our time if geometry or particle count is invalid
+    if (!geometry || exactParticleCount <= 0) {
+        return null;
+    }
+
+    if (!geometry.attributes || !geometry.attributes.position) {
+        console.warn("Geometry missing position attribute:", geometry);
+        return null;
+    }
+
+    // Convert legacy geometry to BufferGeometry if needed (THREE.js best practice)
+    let bufferGeom = geometry;
+    if (geometry.type === 'Geometry' || !geometry.isBufferGeometry) {
+        console.warn("Converting legacy Geometry to BufferGeometry. It's better to use BufferGeometry directly.");
+        bufferGeom = new THREE.BufferGeometry().fromGeometry(geometry);
+    } else if (geometry.attributes.position.itemSize !== 3) {
+        console.error("Position attribute itemSize is not 3.");
+        return null;
+    }
+
+    // --- START: Triangle data preparation ---
+
+    // Grab the vertex positions and index data from the geometry
+    const positionsAttribute = bufferGeom.attributes.position;
+    const indexAttribute = bufferGeom.index;
+
+    // Store each triangle along with its area here
+    const triangles = []; // Format: {vA, vB, vC, area}
+    let totalArea = 0;
+
+    // First, check if the geometry is indexed or not
+    if (!indexAttribute) {
+        // No index, so we're assuming every 3 vertices = 1 triangle
+
+        // Safety check: make sure the vertex count is a multiple of 3
+        if (positionsAttribute.count % 3 !== 0) {
+            console.warn("Cannot form triangles reliably.", bufferGeom);
+            return null;
+        }
+
+        // Go through each triangle one by one
+        for (let i = 0; i < positionsAttribute.count / 3; i++) {
+            // Pull out the 3 vertices that make up this triangle
+            const vA = new THREE.Vector3().fromBufferAttribute(positionsAttribute, i * 3 + 0);
+            const vB = new THREE.Vector3().fromBufferAttribute(positionsAttribute, i * 3 + 1);
+            const vC = new THREE.Vector3().fromBufferAttribute(positionsAttribute, i * 3 + 2);
+            
+            // Calculate how big this triangle is
+            const area = calculateTriangleArea(vA, vB, vC);
+            totalArea += area;
+
+            // Store the triangle and its area for later use
+            triangles.push({ vA, vB, vC, area });
+        }
+    } else {
+        // Indexed geometry, so we use the index to look up the vertices
+
+        // Same safety check—make sure the index count is a multiple of 3
+        if (indexAttribute.count % 3 !== 0) {
+            console.warn("Cannot form triangles reliably.", bufferGeom);
+            return null;
+        }
+
+        // Go through each triangle by using index values
+        for (let i = 0; i < indexAttribute.count / 3; i++) {
+            // Get the indices for the triangle's vertices
+            const idxA = indexAttribute.getX(i * 3 + 0);
+            const idxB = indexAttribute.getX(i * 3 + 1);
+            const idxC = indexAttribute.getX(i * 3 + 2);
+
+            // Use those indices to get the actual vertex positions
+            const vA = new THREE.Vector3().fromBufferAttribute(positionsAttribute, idxA);
+            const vB = new THREE.Vector3().fromBufferAttribute(positionsAttribute, idxB);
+            const vC = new THREE.Vector3().fromBufferAttribute(positionsAttribute, idxC);
+            
+            // Calculate the area like before
+            const area = calculateTriangleArea(vA, vB, vC);
+            totalArea += area;
+
+            // Store it
+            triangles.push({ vA, vB, vC, area });
+        }
+    }
+
+    // If we somehow ended up with no triangles, something's wrong
+    if (triangles.length === 0) {
+        console.warn("Geometry has no triangles to sample from:", bufferGeom);
+        return null;
+    }
+
+    // --- END: Triangle data preparation ---
+
+    // Calculate cumulative area distribution for area-weighted sampling
+    let cumulativeAreas = [];
+    let cumulativeArea = 0;
+    
+    for (let i = 0; i < triangles.length; i++) {
+        cumulativeArea += triangles[i].area;
+        cumulativeAreas.push(cumulativeArea);
+    }
+
+    const particlePositions = []; // Store final x,y,z for each particle point
+
+    for (let i = 0; i < exactParticleCount; i++) {
+        // 1. Pick a random triangle weighted by area
+        const randomAreaPoint = Math.random() * totalArea;
+        let triangleIndex = findTriangleIndexByArea(randomAreaPoint, cumulativeAreas);
+        const randomTriangle = triangles[triangleIndex];
+        const { vA, vB, vC } = randomTriangle;
+
+        // 2. Generate random barycentric coordinates for a point within the triangle
+        let u = Math.random();
+        let v = Math.random();
+        if (u + v > 1) {
+            u = 1 - u;
+            v = 1 - v;
+        }
+        const w = 1 - u - v;
+
+        // 3. Calculate the random point's position on the triangle
+        const randomPointOnTriangle = new THREE.Vector3();
+        randomPointOnTriangle.x = u * vA.x + v * vB.x + w * vC.x;
+        randomPointOnTriangle.y = u * vA.y + v * vB.y + w * vC.y;
+        randomPointOnTriangle.z = u * vA.z + v * vB.z + w * vC.z;
+
+        // 4. Calculate the normal of the triangle face for offsetting
+        const vecAB = new THREE.Vector3().subVectors(vB, vA);
+        const vecAC = new THREE.Vector3().subVectors(vC, vA);
+        const faceNormal = new THREE.Vector3().crossVectors(vecAB, vecAC).normalize();
+        
+        // Fallback for degenerate triangles resulting in NaN normal
+        if (isNaN(faceNormal.x) || faceNormal.lengthSq() < 0.0001) {
+            faceNormal.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+            if (faceNormal.lengthSq() < 0.0001) faceNormal.set(0,1,0); // Absolute fallback
+        }
+
+        // 5. Offset the point slightly along the face normal
+        const finalPoint = new THREE.Vector3().copy(randomPointOnTriangle).addScaledVector(faceNormal, 0.005);
+
+        particlePositions.push(finalPoint.x, finalPoint.y, finalPoint.z);
+    }
+
+    if (particlePositions.length === 0) return null;
+
+    // Create bacteria geometry and material
+    const bacteriaGeometry = new THREE.BufferGeometry();
+    bacteriaGeometry.setAttribute('position', new THREE.Float32BufferAttribute(particlePositions, 3));
+
+    // Get CFU value for this fixture
+    const cfuValue = bacteriaLevels[fixtureName] || 0;
+
+    // Determine base color from CFU value
+    const baseColorHex = getCFUColor(cfuValue);
+    const baseColor = new THREE.Color(baseColorHex);
+
+    // Create color array with slight random variation around base color
+    const colors = [];
+    for (let i = 0; i < particlePositions.length / 3; i++) {
+        const color = baseColor.clone();
+        // Add small random noise to each channel for natural variation
+        color.r = THREE.MathUtils.clamp(color.r + (Math.random() - 0.5) * 0.1, 0, 1);
+        color.g = THREE.MathUtils.clamp(color.g + (Math.random() - 0.5) * 0.1, 0, 1);
+        color.b = THREE.MathUtils.clamp(color.b + (Math.random() - 0.5) * 0.1, 0, 1);
+        colors.push(color.r, color.g, color.b);
+    }
+
+    // Set color attribute on geometry
+    bacteriaGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const bacteriaMaterial = new THREE.PointsMaterial({
+        size: 0.025 + Math.random() * 0.005,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        depthTest: false,
+        sizeAttenuation: true
+    });
+
+    const bacteriaCloud = new THREE.Points(bacteriaGeometry, bacteriaMaterial);
+    bacteriaCloud.name = 'bacteriaCloud';
+    return bacteriaCloud;
+}
+
+/// Helper: Calculates area of a triangle using cross product
+function calculateTriangleArea(vA, vB, vC) {
+    const vecAB = new THREE.Vector3().subVectors(vB, vA);
+    const vecAC = new THREE.Vector3().subVectors(vC, vA);
+    const crossProduct = new THREE.Vector3().crossVectors(vecAB, vecAC);
+    return crossProduct.length() * 0.5;
+}
+
+// Helper: Given a random point within total area, return which triangle it falls into
+function findTriangleIndexByArea(areaPoint, cumulativeAreas) {
+    // Binary search for better performance with many triangles
+    let left = 0;
+    let right = cumulativeAreas.length - 1;
+    
+    while (left <= right) {
+        const middle = Math.floor((left + right) / 2);
+        
+        if (middle === 0 || (areaPoint > cumulativeAreas[middle - 1] && areaPoint <= cumulativeAreas[middle])) {
+            return middle;
+        }
+        
+        if (areaPoint > cumulativeAreas[middle]) {
+            left = middle + 1;
+        } else {
+            right = middle - 1;
+        }
+    }
+    
+    return 0; // Fallback to first triangle
+}
+
+// Master function to update all bacteria clouds
+function updateAllBacteriaVisualizations() {
+    visualizedFixtures.forEach(fixture => {
+        const mesh = fixture.mesh;
+        const level = bacteriaLevels[fixture.name] || 0; // Default to 0 if name not found
+
+        // Remove existing bacteria cloud if it exists
+        if (fixture.bacteriaCloud) {
+            mesh.remove(fixture.bacteriaCloud);
+            fixture.bacteriaCloud.geometry.dispose(); // Dispose geometry
+            fixture.bacteriaCloud.material.dispose(); // Dispose material
+            fixture.bacteriaCloud = null;
+        }
+
+        // Create and add new bacteria cloud if level > 0
+        if (level > 0 && mesh && mesh.geometry) {
+            // Use the exact bacteriaLevels value as the particle count
+            const exactParticleCount = level;
+            const newBacteriaCloud = createBacteriaCloud(mesh.geometry, exactParticleCount, fixture.name);
+            if (newBacteriaCloud) {
+                mesh.add(newBacteriaCloud);
+                fixture.bacteriaCloud = newBacteriaCloud; // Store reference
+            }
+        }
+    });
+}
+
+
+function setupBacteriaGUI() {
+    const gui = new dat.GUI();
+    gui.domElement.style.position = 'absolute';
+    gui.domElement.style.top = '60px';
+    gui.domElement.style.left = '10px';
+    // Scale down the GUI to 75%
+    gui.domElement.style.transform = 'scale(0.75)';
+    gui.domElement.style.transformOrigin = 'top left';
+    
+
+    const bacteriaFolder = gui.addFolder('Bacteria Levels');
+
+    for (const key in bacteriaLevels) {
+        if (bacteriaLevels.hasOwnProperty(key)) {
+            const controller = bacteriaFolder.add(bacteriaLevels, key, 0, 3000, 0.01)
+                .name(key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()))
+                .onChange(value => {
+                    updateAllBacteriaVisualizations();
+                    updateSliderColor(controller, value);
+                });
+
+            // Initialize slider color
+            updateSliderColor(controller, bacteriaLevels[key]);
+        }
+    }
+
+    bacteriaFolder.open();
+
+    // Helper function to update slider bar color
+    function updateSliderColor(controller, value) {
+        // Get the color based on current slider value
+        const color = getCFUColor(value);
+
+        // dat.GUI slider fg is the element that fills the slider bar
+        const sliderFG = controller.domElement.querySelector('.slider-fg');
+
+        if (sliderFG) {
+            sliderFG.style.backgroundColor = color;
+        }
+    }
+}
+
+        // --- Movement and Control Functions ---
+
+        function onKeyDown(event) {
+            // Only process movement keys if in free exploration mode
+            if (!isInFreeMode || cameraMoving) return;
+            
+            switch (event.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyD': moveRight = true; break;
+                case 'Space':
+                    if (canJump) velocity.y += 8;
+                    canJump = false; // Prevent double jump while in air
+                    break;
+                case 'ShiftLeft': isRunning = true; break;
+            }
+        }
+
+        function onKeyUp(event) {
+            // Always process key up events to avoid stuck keys
+            switch (event.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyD': moveRight = false; break;
+                case 'ShiftLeft': isRunning = false; break;
+            }
+        }
+
+        function updateMovement(delta) {
+            if (!controls.isLocked) return; // Don't move if pointer not locked
+
+             // Simple collision detection (against walls/floor/ceiling)
+             const checkCollision = (moveVec) => {
+                const futurePos = controls.getObject().position.clone().add(moveVec);
+                const playerHeight = 3;
+                const playerRadius = 0.3; // Approximate player width/depth
+
+                 // Floor/Ceiling
+                 if (futurePos.y < playerHeight / 2) {
+                    futurePos.y = playerHeight / 2;
+                    velocity.y = 0; // Stop falling
+                    canJump = true; // Landed
+                 } else if (futurePos.y > roomHeight - playerHeight / 2) {
+                    futurePos.y = roomHeight - playerHeight / 2;
+                    velocity.y = 0; // Hit ceiling
+                 }
+
+                 // Walls (X/Z) - very basic collission
+                 if (futurePos.x < -roomWidth / 2 + playerRadius) futurePos.x = -roomWidth / 2 + playerRadius;
+                 if (futurePos.x > roomWidth / 2 - playerRadius) futurePos.x = roomWidth / 2 - playerRadius;
+                 if (futurePos.z < -roomDepth / 2 + playerRadius) futurePos.z = -roomDepth / 2 + playerRadius;
+                 if (futurePos.z > roomDepth / 2 - playerRadius) futurePos.z = roomDepth / 2 - playerRadius;
+
+                 controls.getObject().position.copy(futurePos);
+             };
+
+
+            // Reset velocity influence from previous frame
+            velocity.x -= velocity.x * 10.0 * delta; // Damping
+            velocity.z -= velocity.z * 10.0 * delta;
+
+            // Gravity
+            velocity.y -= 9.8 * 3.0 * delta; // Apply gravity (adjust multiplier)
+
+            // Calculate movement direction
+            let direction = new THREE.Vector3();
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize(); // Ensure consistent speed in all directions
+
+            // Apply movement based on direction and speed
+            const currentSpeed = (isRunning ? -moveSpeed * runMultiplier : -moveSpeed);
+            if (moveForward || moveBackward) velocity.z -= direction.z * currentSpeed * delta * 10; // Multiplier needed due to damping
+            if (moveLeft || moveRight) velocity.x -= direction.x * currentSpeed * delta * 10;
+
+
+             // Calculate move vector based on camera direction and velocity
+            let moveVec = new THREE.Vector3();
+            moveVec.x = velocity.x * delta;
+            moveVec.y = velocity.y * delta;
+            moveVec.z = velocity.z * delta;
+            
+            // Transform direction vector by camera rotation
+            controls.moveRight(moveVec.x);
+            controls.moveForward(moveVec.z);
+            
+            // Apply vertical velocity directly and check collision
+             checkCollision(new THREE.Vector3(0, moveVec.y, 0));
+
+            // Reset canJump if on ground (handled in checkCollision now)
+            // Check if player is on the ground (position y is close to floor level)
+             if (controls.getObject().position.y <= 1.7 / 2 + 0.1) { // Check slightly above floor
+                canJump = true;
+             }
+
+        }
+
+        // --- Scene Creation Functions ---
+
+// Create room walls
+function createRoom(roomWidth, roomHeight, roomDepth) {
+    // Materials (assuming these are defined elsewhere)
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe0e0e0, // Light grey walls
+        roughness: 0.8,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+    });
+    const floorMaterial = new THREE.MeshStandardMaterial({
+        color: 0xaaaaaa, // Darker floor
+        roughness: 0.6,
+        metalness: 0.2,
+    });
+    const ceilingMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf5f5f5, // White ceiling
+        roughness: 0.9,
+        metalness: 0.05,
+    });
+
+    // Floor
+    // Add segments for more uniform bacteria distribution across the floor surface
+    const floorGeometry = new THREE.PlaneGeometry(roomWidth, roomDepth, 30, 30); // Added 30x30 segments
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    visualizedFixtures.push({ name: 'floor', mesh: floor, bacteriaCloud: null }); // Track floor for bacteria
+
+    // Ceiling
+    const ceilingGeometry = new THREE.PlaneGeometry(roomWidth, roomDepth, 30, 30);
+    const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = roomHeight;
+    ceiling.receiveShadow = true;
+    scene.add(ceiling);
+    // Walls Group
+    const wallsGroup = new THREE.Group();
+
+    // Back wall
+    const backWallGeometry = new THREE.PlaneGeometry(roomWidth, roomHeight, 30, 30);
+    const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+    backWall.position.z = -roomDepth / 2;
+    backWall.position.y = roomHeight / 2;
+    backWall.receiveShadow = true;
+    wallsGroup.add(backWall);
+
+    // Front wall
+    const frontWallGeometry = new THREE.PlaneGeometry(roomWidth, roomHeight, 30, 30);
+    const frontWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
+    frontWall.position.z = roomDepth / 2;
+    frontWall.position.y = roomHeight / 2;
+    frontWall.rotation.y = Math.PI;
+    frontWall.receiveShadow = true;
+    wallsGroup.add(frontWall);
+
+    // Left wall
+    const leftWallGeometry = new THREE.PlaneGeometry(roomDepth, roomHeight, 30, 30);
+    const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+    leftWall.position.x = -roomWidth / 2;
+    leftWall.position.y = roomHeight / 2;
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.receiveShadow = true;
+    wallsGroup.add(leftWall);
+
+    // Right wall
+    const rightWallGeometry = new THREE.PlaneGeometry(roomDepth, roomHeight, 30, 30);
+    const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+    rightWall.position.x = roomWidth / 2;
+    rightWall.position.y = roomHeight / 2;
+    rightWall.rotation.y = -Math.PI / 2;
+    rightWall.receiveShadow = true;
+    wallsGroup.add(rightWall);
+
+    scene.add(wallsGroup);
+    // Track wall for bacteria
+    visualizedFixtures.push({ name: 'backWall', mesh: backWall, bacteriaCloud: null });
+    visualizedFixtures.push({ name: 'frontWall', mesh: frontWall, bacteriaCloud: null });
+    visualizedFixtures.push({ name: 'leftWall', mesh: leftWall, bacteriaCloud: null });
+    visualizedFixtures.push({ name: 'rightWall', mesh: rightWall, bacteriaCloud: null });
+}
+
+    function createBathroomFixtures(roomWidth, roomHeight, roomDepth) {
+        // This group will hold all fixtures created by this function
+        const fixturesGroup = new THREE.Group();
+
+        // --- Common Materials ---
+        // Define all materials needed by any fixture created within this function here
+        const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.7 });
+        const chromeMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.1, metalness: 0.9 });
+        const whitePlasticMaterial = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.4, metalness: 0.1 });
+        const darkPlasticMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6, metalness: 0.1 });
+        const glassMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff, roughness: 0.05, metalness: 0.1, transmission: 0.95, transparent: true, reflectivity: 0.5
+        });
+        const paperMaterial = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.8 });
+        const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.5 });
+
+        const ceramicMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf8f8f8,
+            roughness: 0.1,
+            metalness: 0.05
+        });
+        const waterMaterial = new THREE.MeshStandardMaterial({
+            color: 0xadd8e6,
+            roughness: 0,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.6
+        });
+        const seatPlasticMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.3,
+            metalness: 0.0
+        });
+
+
+        function createToiletBowl() {
+            const toiletGroup = new THREE.Group();
+
+            // Toilet bowl (outer)
+            const bowlOuterGeometry = new THREE.CylinderGeometry(0.25, 0.2, 0.35, 32, 20, true);
+            const bowlOuter = new THREE.Mesh(bowlOuterGeometry, ceramicMaterial);
+            bowlOuter.position.set(0, 0.575, 0.1);
+            bowlOuter.castShadow = true;
+            bowlOuter.receiveShadow = true;
+            toiletGroup.add(bowlOuter);
+            visualizedFixtures.push({ name: 'toiletBowlUnder', mesh: bowlOuter, bacteriaCloud: null });
+
+            // Toilet bowl interior (water)
+            const waterSurfaceGeometry = new THREE.CircleGeometry(0.18, 64); // Increased segments
+            const waterSurface = new THREE.Mesh(waterSurfaceGeometry, waterMaterial);
+            waterSurface.rotation.x = -Math.PI / 2;
+            waterSurface.position.set(0, 0.6, 0.1);
+            toiletGroup.add(waterSurface)
+
+
+            // Toilet seat
+            const seatShape = new THREE.Shape();
+            const outerRadius = 0.28;
+            const innerRadius = 0.15;
+            const holeOffset = 0.0;
+
+            seatShape.absarc(0, holeOffset, outerRadius, 0, Math.PI * 2, false, 64);
+            const holePath = new THREE.Path();
+            holePath.absarc(0, holeOffset, innerRadius, 0, Math.PI * 2, true);
+            seatShape.holes.push(holePath);
+
+            const extrudeSettings = { depth: 0.04, bevelEnabled: false};
+            const seatGeometry = new THREE.ExtrudeGeometry(seatShape, extrudeSettings);
+            seatGeometry.center();
+            const toiletSeat = new THREE.Mesh(seatGeometry, seatPlasticMaterial);
+            toiletSeat.position.set(0, 0.76, 0.1);
+            toiletSeat.rotation.x = Math.PI / 2;
+            toiletSeat.castShadow = true;
+            toiletSeat.receiveShadow = true;
+            toiletGroup.add(toiletSeat);
+            visualizedFixtures.push({ name: 'toiletSeat', mesh: toiletSeat, bacteriaCloud: null });
+
+
+            // Toilet tank
+            const tankGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.2, 10, 10, 10);
+            const toiletTank = new THREE.Mesh(tankGeometry, ceramicMaterial);
+            toiletTank.position.set(0, 0.95, -0.2);
+            toiletTank.castShadow = true;
+            toiletTank.receiveShadow = true;
+            toiletGroup.add(toiletTank);
+
+            // Tank lid
+            const tankLidGeometry = new THREE.BoxGeometry(0.55, 0.05, 0.25, 10, 5, 10);
+            const tankLid = new THREE.Mesh(tankLidGeometry, ceramicMaterial);
+            tankLid.position.set(0, 1.225, -0.2);
+            tankLid.castShadow = true;
+            toiletGroup.add(tankLid);
+
+            // Flush button
+            const flushButtonGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 16, 5);
+            const flushButton = new THREE.Mesh(flushButtonGeometry, chromeMaterial);
+            flushButton.position.set(0, 1.26, -0.2);
+            flushButton.castShadow = true;
+            toiletGroup.add(flushButton);
+            visualizedFixtures.push({ name: 'toiletFlushButton', mesh: flushButton, bacteriaCloud: null });
+
+            const toiletBottomOffset = 0.6;
+            toiletGroup.position.set(roomWidth / 4, 0 - toiletBottomOffset, -roomDepth / 2 + 0.6);
+            toiletGroup.scale.set(1.5, 1.5, 1.5);
+
+            // Add the completed toilet group to the main fixtures group
+            fixturesGroup.add(toiletGroup);
+        }
+
+
+        // --- Create Mirror (Nested) ---
+        function createMirror() {
+            const mirrorGroup = new THREE.Group();
+            const mirrorWidth = 1.2;
+            const mirrorHeight = 0.8;
+            const frameThickness = 0.05;
+
+            // Mirror surface
+            const mirrorGeometry = new THREE.PlaneGeometry(mirrorWidth, mirrorHeight, 20, 20);
+            const mirror = new THREE.Mesh(mirrorGeometry, glassMaterial);
+            mirror.position.z = 0.01;
+            mirrorGroup.add(mirror);
+            visualizedFixtures.push({ name: 'mirrorSurface', mesh: mirror, bacteriaCloud: null });
+
+            // Frame 
+            const frameShape = new THREE.Shape();
+            frameShape.moveTo(-mirrorWidth / 2 - frameThickness, -mirrorHeight / 2 - frameThickness);
+            frameShape.lineTo(mirrorWidth / 2 + frameThickness, -mirrorHeight / 2 - frameThickness);
+            frameShape.lineTo(mirrorWidth / 2 + frameThickness, mirrorHeight / 2 + frameThickness);
+            frameShape.lineTo(-mirrorWidth / 2 - frameThickness, mirrorHeight / 2 + frameThickness);
+            frameShape.closePath();
+            const holePath = new THREE.Path();
+            holePath.moveTo(-mirrorWidth / 2, -mirrorHeight / 2);
+            holePath.lineTo(mirrorWidth / 2, -mirrorHeight / 2);
+            holePath.lineTo(mirrorWidth / 2, mirrorHeight / 2);
+            holePath.lineTo(-mirrorWidth / 2, mirrorHeight / 2);
+            holePath.closePath();
+            frameShape.holes.push(holePath);
+            const frameGeometry = new THREE.ExtrudeGeometry(frameShape, { depth: 0.03, bevelEnabled: false });
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+            frame.position.z = -0.015;
+            mirrorGroup.add(frame);
+
+
+            // Position mirror relative to its parent (fixturesGroup)
+            mirrorGroup.position.set(-roomWidth / 3, 1.6, -roomDepth / 2 + 0.05);
+            fixturesGroup.add(mirrorGroup); // Add to the main fixtures group
+        }
+
+        function createCeilingVent() {
+            const ventGroup = new THREE.Group();
+            const size = 0.6;
+            const thickness = 0.03;
+
+            const ventBaseGeo = new THREE.BoxGeometry(size, thickness, size, 10, 5, 10);
+            const ventBase = new THREE.Mesh(ventBaseGeo, whitePlasticMaterial);
+            ventBase.receiveShadow = true;
+            ventGroup.add(ventBase);
+            visualizedFixtures.push({ name: 'ventBase', mesh: ventBase, bacteriaCloud: null });
+
+            const grillMaterial = new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.4 });
+            const grillSpacing = 0.05;
+            const grillWidth = 0.015;
+            const numGrills = Math.floor((size - grillSpacing * 2) / grillSpacing);
+
+            for (let i = 0; i < numGrills; i++) {
+                const grillGeo = new THREE.BoxGeometry(size - grillSpacing * 2, 0.01, grillWidth, 10, 1, 1);
+                const grill = new THREE.Mesh(grillGeo, grillMaterial);
+                grill.position.z = -size / 2 + grillSpacing + i * grillSpacing + grillSpacing / 2;
+                grill.position.y = -thickness / 2 - 0.005; // Below base
+                ventBase.add(grill); // Add as child of base
+            }
+
+
+            ventGroup.position.set(0, roomHeight - thickness / 2, 0); // Center ceiling
+            fixturesGroup.add(ventGroup);
+        }
+
+        function createHandDryer() {
+            const dryerGroup = new THREE.Group();
+            const bodyWidth = 0.25;
+            const bodyHeight = 0.3;
+            const bodyDepth = 0.15;
+
+            const dryerBodyGeo = new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth, 10, 10, 10);
+            const dryerBodyMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.2 });
+            const dryerBody = new THREE.Mesh(dryerBodyGeo, dryerBodyMat);
+            dryerBody.castShadow = true;
+            dryerGroup.add(dryerBody);
+            visualizedFixtures.push({ name: 'handDryerBody', mesh: dryerBody, bacteriaCloud: null });
+
+            // Outlet
+            const outletGeo = new THREE.CylinderGeometry(0.04, 0.03, 0.05, 16, 5);
+            const outletMat = metalMaterial;
+            const outlet = new THREE.Mesh(outletGeo, outletMat);
+            outlet.position.y = -bodyHeight / 2; // Bottom center
+            outlet.position.z = bodyDepth / 4; // Slightly forward
+            dryerBody.add(outlet);
+
+            // Sensor (small dark circle)
+            const sensorGeo = new THREE.CircleGeometry(0.02, 32);
+            const sensorMat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+            const sensor = new THREE.Mesh(sensorGeo, sensorMat);
+            sensor.position.y = -bodyHeight / 2 + 0.06;
+            sensor.position.z = bodyDepth / 2 + 0.001;
+            dryerBody.add(sensor);
+
+
+            dryerGroup.position.set(-roomWidth / 2 + bodyDepth / 2, 1.2, -roomDepth / 4);
+            dryerGroup.rotation.y = Math.PI / 2;
+            fixturesGroup.add(dryerGroup);
+        }
+
+        function createWasteBin() {
+            const binGroup = new THREE.Group();
+            const radiusTop = 0.18;
+            const radiusBottom = 0.15;
+            const height = 0.4;
+
+            const binGeo = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 24, 15);
+            const bin = new THREE.Mesh(binGeo, darkPlasticMaterial);
+            bin.castShadow = true;
+            binGroup.add(bin);
+            visualizedFixtures.push({ name: 'wasteBinBody', mesh: bin, bacteriaCloud: null });
+
+
+            // Simple opening lip
+            const lipGeo = new THREE.TorusGeometry(radiusTop, 0.015, 8, 24);
+            const lipMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.5 });
+            const lip = new THREE.Mesh(lipGeo, lipMat);
+            lip.rotation.x = Math.PI / 2;
+            lip.position.y = height / 2;
+            bin.add(lip);
+
+
+            binGroup.position.set(roomWidth / 2 - 0.3, height / 2, roomDepth / 3); // Corner
+            fixturesGroup.add(binGroup);
+        }
+
+        function createToiletPaperDispenser() {
+            const dispenserGroup = new THREE.Group();
+
+            // --- Dimensions ---
+            const mountSize = 0.12;
+            const mountDepth = 0.015;
+            const armLength = 0.07;
+            const armRadius = 0.008;
+            const barRadius = 0.006;
+            const rollWidth = 0.11;
+            const rollRadius = 0.055;
+            // const holeRadius = 0.02; // Radius of the cardboard tube hole
+
+            // --- Mount (Square Base Plate) ---
+            const mountGeo = new THREE.BoxGeometry(mountSize, mountSize, mountDepth, 5, 5, 2);
+            const mount = new THREE.Mesh(mountGeo, whitePlasticMaterial);
+            mount.castShadow = true;
+            // Position mount centered within the dispenserGroup at its origin
+            dispenserGroup.add(mount);
+
+            // --- Bar Holder Arms (Cylinders pointing forward) ---
+            // Arms stick out along the Z-axis from the front face of the mount
+            const armGeo = new THREE.CylinderGeometry(armRadius, armRadius, armLength, 12, 5);
+            const arm1 = new THREE.Mesh(armGeo, whitePlasticMaterial);
+            arm1.castShadow = true;
+            // Rotate arm to point along the Z-axis (default cylinder axis is Y)
+            arm1.rotation.x = Math.PI / 2;
+            arm1.position.set(-rollWidth / 2 - armRadius, 0, mountDepth / 2 + armLength / 2);
+            mount.add(arm1); // Add arm relative to the mount
+
+            const arm2 = arm1.clone();
+            // Position the right arm similarly, but offset right
+            arm2.position.x = rollWidth / 2 + armRadius;
+            mount.add(arm2);
+
+
+            // --- Roller Bar (Horizontal) ---
+            const barLength = rollWidth + 2 * armRadius;
+            const barGeo = new THREE.CylinderGeometry(barRadius, barRadius, barLength, 12, 10);
+            const bar = new THREE.Mesh(barGeo, chromeMaterial);
+            bar.castShadow = true;
+            // Rotate bar to be horizontal along the X-axis (default is Y)
+            bar.rotation.z = Math.PI / 2;
+
+            bar.position.set(0, 0, mountDepth / 2 + armLength);
+            mount.add(bar); // Add bar relative to the mount
+
+            // --- Toilet Paper Roll ---
+            const paperGeo = new THREE.CylinderGeometry(rollRadius, rollRadius, rollWidth, 24, 15); // Increased height segments
+            const paperRoll = new THREE.Mesh(paperGeo, paperMaterial);
+            paperRoll.castShadow = true;
+            // Rotate roll to match the bar's orientation (horizontal along X)
+            paperRoll.rotation.z = Math.PI / 2;
+            // Position roll centered on the bar
+            paperRoll.position.set(0, 0, mountDepth / 2 + armLength);
+            mount.add(paperRoll); // Add roll relative to the mount
+            // Track the roll
+            visualizedFixtures.push({ name: 'tpDispenserRoll', mesh: paperRoll, bacteriaCloud: null });
+
+            dispenserGroup.position.set(roomWidth / 2, 0.8, -roomDepth / 4); // On right wall
+            dispenserGroup.rotation.y = -Math.PI / 2;
+
+            // Add the completed dispenser to your main fixtures group
+            fixturesGroup.add(dispenserGroup);
+
+        }
+
+
+        function createHandRail() {
+            const railGroup = new THREE.Group();
+            const barRadius = 0.018;  // Thickness of the bar
+            
+            // Parameters for the U-shaped rail
+            const horizontalLength = 0.75;  // Length of horizontal section
+            const verticalHeight = 0.85;    // Height from floor to horizontal section
+            
+            // Create the U-shaped path with many intermediate points for bacteria distribution
+            const points = [];
+            const segmentsPerSide = 15;  // Higher number = more evenly distributed bacteria
+            
+            // Left vertical section (from floor up) with intermediate points
+            for (let i = 0; i <= segmentsPerSide; i++) {
+                const y = (verticalHeight * i) / segmentsPerSide;
+                points.push(new THREE.Vector3(0, y, 0));
+            }
+            
+            // Horizontal section (left to right) with intermediate points
+            for (let i = 1; i <= segmentsPerSide; i++) {
+                const x = (horizontalLength * i) / segmentsPerSide;
+                points.push(new THREE.Vector3(x, verticalHeight, 0));
+            }
+            
+            // Right vertical section (top to bottom) with intermediate points
+            for (let i = 1; i <= segmentsPerSide; i++) {
+                const y = verticalHeight - (verticalHeight * i) / segmentsPerSide;
+                points.push(new THREE.Vector3(horizontalLength, y, 0));
+            }
+            
+            // Create the tube geometry following the U-shaped path
+            const path = new THREE.CatmullRomCurve3(points);
+            // Increase tube segments for smoother bacteria distribution
+            const tubeGeometry = new THREE.TubeGeometry(path, points.length * 2, barRadius, 16, false);
+            const tube = new THREE.Mesh(tubeGeometry, chromeMaterial);
+            tube.castShadow = true;
+            railGroup.add(tube);
+            visualizedFixtures.push({ name: 'curvedHandRail', mesh: tube, bacteriaCloud: null });
+            
+            // Position the entire rail group appropriately relative to the toilet
+            railGroup.position.set(roomWidth / 4 - 0.5, 0, -roomDepth / 2 + 1);
+            railGroup.rotation.y = Math.PI / 2;
+            fixturesGroup.add(railGroup);
+        }
+
+        function createSink() {
+            const sinkGroup = new THREE.Group();
+            const counterWidth = 1.0;
+            const counterHeight = 0.05;
+            const counterDepth = 0.45;
+            const basinOuterRadius = 0.18; // Radius for the hole and outer basin/rim
+            const basinInnerRadiusBottom = basinOuterRadius * 0.75; // Bottom radius of the main basin cylinder profile
+            const basinDepth = 0.12; // Overall depth from outer rim to outer bottom
+            const counterTopY = 0.8; // Desired absolute Y height of the counter's top surface
+
+            // --- 1. Visible Sink Basin (hollow shape using LatheGeometry for curved walls) ---
+            // Increased numVerticalSegments and radialSegments for better wall distribution.
+            const innerBasinDepth = basinDepth * 0.9;
+            const innerBasinTopRadius = basinOuterRadius * 0.95;
+            const innerBasinBottomRadiusLathe = basinInnerRadiusBottom * 0.95;
+            const numVerticalSegments = 25; // Increased steps along the wall profiles for vertical segments
+
+            const basinProfilePoints = [];
+            for (let i = 0; i <= numVerticalSegments; i++) {
+                const z = (i / numVerticalSegments) * innerBasinDepth;
+                const r = innerBasinBottomRadiusLathe + (innerBasinTopRadius - innerBasinBottomRadiusLathe) * (i / numVerticalSegments);
+                basinProfilePoints.push(new THREE.Vector2(r, z));
+            }
+            for (let i = numVerticalSegments; i >= 0; i--) {
+                const z = (i / numVerticalSegments) * basinDepth;
+                const r = basinInnerRadiusBottom + (basinOuterRadius - basinInnerRadiusBottom) * (i / numVerticalSegments);
+                basinProfilePoints.push(new THREE.Vector2(r, z));
+            }
+
+            const basinGeo = new THREE.LatheGeometry(basinProfilePoints, 48);
+            const basinMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.1, side: THREE.DoubleSide });
+            const basinWalls = new THREE.Mesh(basinGeo, basinMat);
+
+            basinWalls.position.y = counterTopY - 0.005 - basinDepth;
+            basinWalls.position.x = 0;
+            basinWalls.position.z = 0;
+
+            basinWalls.castShadow = true;
+            sinkGroup.add(basinWalls);
+            visualizedFixtures.push({ name: 'sinkBasinWalls', mesh: basinWalls, bacteriaCloud: null });
+
+
+            // --- 2. Flat White Bottom Surface ---
+            const flatBottomRadius = innerBasinBottomRadiusLathe;
+            const flatBottomGeo = new THREE.CircleGeometry(flatBottomRadius, 64); // Increased segments for distribution
+            const flatBottomMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.1 });
+            const flatBottom = new THREE.Mesh(flatBottomGeo, flatBottomMat);
+
+            flatBottom.rotation.x = -Math.PI / 2;
+            flatBottom.position.y = basinWalls.position.y + 0.0005;
+            flatBottom.position.x = 0;
+            flatBottom.position.z = 0;
+
+            sinkGroup.add(flatBottom);
+            visualizedFixtures.push({ name: 'sinkBasinBottomFlat', mesh: flatBottom, bacteriaCloud: null });
+
+
+            // --- 3. Drain ---
+            const drainRadius = 0.03;
+            const drainGeo = new THREE.CircleGeometry(drainRadius, 64); 
+            const drainMat = metalMaterial;
+            const drain = new THREE.Mesh(drainGeo, drainMat);
+
+            drain.rotation.x = -Math.PI / 2;
+            drain.position.y = flatBottom.position.y + 0.001;
+            drain.position.x = 0;
+            drain.position.z = 0;
+
+            sinkGroup.add(drain);
+
+            // --- 4. Tap/faucet ---
+            const tapGroup = new THREE.Group();
+            const tapBaseRadius = 0.025;
+            const tapBaseHeight = 0.03;
+            const tapNeckRadius = 0.015;
+            const tapNeckHeight = 0.12;
+            const tapSpoutLength = 0.08;
+
+            // Base
+            const tapBaseGeo = new THREE.CylinderGeometry(tapBaseRadius, tapBaseRadius, tapBaseHeight, 24, 8);
+            const tapBase = new THREE.Mesh(tapBaseGeo, chromeMaterial);
+            tapBase.position.y = tapBaseHeight / 2;
+            tapGroup.add(tapBase);
+            visualizedFixtures.push({ name: 'sinkTapBase', mesh: tapBase, bacteriaCloud: null });
+
+            // Neck (vertical part)
+            const tapNeckGeo = new THREE.CylinderGeometry(tapNeckRadius, tapNeckRadius, tapNeckHeight, 24, 15);
+            const tapNeck = new THREE.Mesh(tapNeckGeo, chromeMaterial);
+            tapNeck.position.y = tapBaseHeight / 2 + tapNeckHeight / 2;
+            tapBase.add(tapNeck);
+            visualizedFixtures.push({ name: 'sinkTap', mesh: tapNeck, bacteriaCloud: null });
+
+            // Position the whole tapGroup relative to the counter top
+            tapGroup.position.y = counterTopY;
+            tapGroup.position.x = 0;
+            tapGroup.position.z = -counterDepth / 2 + 0.05;
+
+            sinkGroup.add(tapGroup);
+
+
+            // --- 5. Sink Basin Rim (thin visible edge) ---
+            const basinRimHeight = 0.01;
+            const basinRimThickness = 0.015;
+            const basinRimOuterRadius = basinOuterRadius + basinRimThickness;
+            const basinRimInnerRadius = basinOuterRadius;
+            const sinkRimGeo = new THREE.RingGeometry(basinRimInnerRadius, basinRimOuterRadius, 48, 8);
+            const basinRimMat = whitePlasticMaterial;
+            const sinkRim = new THREE.Mesh(sinkRimGeo, basinRimMat);
+
+            sinkRim.rotation.x = -Math.PI / 2;
+            sinkRim.position.y = counterTopY + basinRimHeight / 2;
+            sinkRim.position.x = 0;
+            sinkRim.position.z = 0;
+
+            sinkRim.castShadow = true;
+            sinkGroup.add(sinkRim);
+
+            // --- 7. Position the whole sink assembly ---
+            sinkGroup.position.set(-roomWidth / 3, 0, -roomDepth / 2 + counterDepth / 2); // Left wall, against back
+            fixturesGroup.add(sinkGroup);
+
+        }
+
+
+        function createRadiator() {
+            const radGroup = new THREE.Group();
+            const radWidth = 0.8;
+            const radHeight = 0.6;
+            const radDepth = 0.08;
+            const finWidth = 0.03;
+            const finSpacing = 0.07;
+
+            // Basic back panel
+            const backPanelGeo = new THREE.BoxGeometry(radWidth, radHeight, 0.01, 15, 15, 1);
+            const backPanelMat = new THREE.MeshStandardMaterial({ color: 0xe5e5e5, roughness: 0.6 });
+            const backPanel = new THREE.Mesh(backPanelGeo, backPanelMat);
+            backPanel.position.z = -radDepth / 2 + 0.005;
+            radGroup.add(backPanel);
+            visualizedFixtures.push({ name: 'radiatorBody', mesh: backPanel, bacteriaCloud: null });
+
+
+            // Radiator fins (vertical elements)
+            const numFins = Math.floor(radWidth / finSpacing);
+            const finGeo = new THREE.BoxGeometry(finWidth, radHeight * 0.9, radDepth, 2, 15, 5);
+            const finMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.3 });
+
+            for (let i = 0; i < numFins; i++) {
+                const fin = new THREE.Mesh(finGeo, finMat);
+                fin.position.x = -radWidth / 2 + finSpacing / 2 + i * finSpacing;
+                fin.position.y = -radHeight * 0.05; // Slightly lower than back panel
+                fin.castShadow = true;
+                radGroup.add(fin);
+            }
+
+            // Valves (simple cylinders)
+            const valveRadius = 0.02;
+            const valveHeight = 0.06;
+            const valveGeo = new THREE.CylinderGeometry(valveRadius, valveRadius, valveHeight, 12, 5);
+            const valveMat = chromeMaterial;
+
+            const valve1 = new THREE.Mesh(valveGeo, valveMat);
+            valve1.position.set(-radWidth / 2 + 0.04, -radHeight / 2 - valveHeight / 2, 0);
+            radGroup.add(valve1);
+
+            const valve2 = valve1.clone();
+            valve2.position.x = radWidth / 2 - 0.04;
+            radGroup.add(valve2);
+
+            // Position the radiator on a wall
+            radGroup.position.set(0, 0.5, roomDepth / 2 - 0.1); // Front wall, low down
+            radGroup.rotation.y = Math.PI;
+            fixturesGroup.add(radGroup);
+        }
+
+        // --- Call creation functions ---
+        createMirror();
+        createToiletBowl();
+        createSink();
+        createCeilingVent();
+        createHandDryer();
+        createWasteBin();
+        createToiletPaperDispenser();
+        createHandRail();
+        createRadiator();
+
+        // Add the group of all fixtures to the scene
+        scene.add(fixturesGroup);
+    }
+
+        // Add lighting
+        function createLighting() {
+
+            // Ambient light (provides overall illumination)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft white ambient light
+            scene.add(ambientLight);
+
+            // Main directional light (simulates sun or ceiling light)
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight.position.set(5, 10, 7); // Angled from above
+            directionalLight.castShadow = true;
+            // Configure shadow properties for better quality/performance
+            directionalLight.shadow.mapSize.width = 2048; // High resolution shadow map
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 50;
+            directionalLight.shadow.camera.left = -roomWidth;
+            directionalLight.shadow.camera.right = roomWidth;
+            directionalLight.shadow.camera.top = roomDepth;
+            directionalLight.shadow.camera.bottom = -roomDepth;
+            directionalLight.shadow.bias = -0.001; // Adjust shadow bias to prevent artifacts
+
+
+            scene.add(directionalLight);
+             scene.add(directionalLight.target); // Important for positioning the light's direction
+
+             // Optional: Add a subtle point light near the mirror/sink
+             const pointLight = new THREE.PointLight(0xffddaa, 0.3, 10, 1); // Warm light, range 10, decay 1
+             pointLight.position.set(-roomWidth / 3, 2, -roomDepth / 2 + 0.5); // Near sink area
+             pointLight.castShadow = false; // Can cast shadows too if you want (potentially expensive)
+             pointLight.shadow.mapSize.width = 1024;
+             pointLight.shadow.mapSize.height = 1024;
+             pointLight.shadow.bias = -0.005;
+             scene.add(pointLight);
+
+
+             // Optional: Hemisphere Light for softer ambient sky/ground effect
+             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.3); // Sky color, ground color, intensity
+             hemiLight.position.set(0, roomHeight, 0);
+             scene.add(hemiLight);
+        }
+
+        // --- Raycasting and Highlighting Logic ---
+
+        function storeOriginalMaterial(object) {
+            if (!object.uuid || originalMaterials[object.uuid]) return; // Already stored or no uuid
+
+            if (Array.isArray(object.material)) {
+                originalMaterials[object.uuid] = object.material.slice(); // Store a copy
+            } else {
+                originalMaterials[object.uuid] = object.material;
+            }
+        }
+
+        function applyHighlightMaterial(object) {
+            if (!object) return;
+            storeOriginalMaterial(object); // Ensure original is stored before overwriting
+
+            if (Array.isArray(object.material)) {
+                // If the object uses multiple materials, replace them all with the highlight material
+                // or a new array of highlight materials if needed (though usually one suffices visually)
+                const numMaterials = object.material.length;
+                object.material = new Array(numMaterials).fill(highlightMaterial);
+            } else {
+                object.material = highlightMaterial;
+            }
+        }
+
+        function restoreOriginalMaterial(object) {
+            if (!object || !object.uuid || !originalMaterials[object.uuid]) return;
+
+            object.material = originalMaterials[object.uuid];
+        }
+
+function checkIntersections() {
+    // Don't process intersections during camera movement animations
+    if (cameraMoving) return;
+    
+    // Don't process intersections when controls are unlocked in free mode
+    if (!controls.isLocked && isInFreeMode) {
+        if (intersectedObject) {
+            restoreOriginalMaterial(intersectedObject);
+            intersectedObject = null;
+        }
+        hideDescription(); // Hide description when not locked in free mode
+        return;
+    }
+    
+    // In guided mode, keep current highlighted object and description
+    if (!isInFreeMode && intersectedObject) {
+        return;
+    }
+
+    raycaster.setFromCamera(mouse, camera);
+    highlightableObjects = visualizedFixtures.map(fixture => fixture.mesh).filter(mesh => mesh);
+    const intersects = raycaster.intersectObjects(highlightableObjects, false);
+
+    if (intersects.length > 0) {
+        const firstHit = intersects[0].object;
+
+        if (intersectedObject !== firstHit) { // New object intersected or first intersection
+            if (intersectedObject) {
+                restoreOriginalMaterial(intersectedObject); // Restore old one
+            }
+            intersectedObject = firstHit;
+            applyHighlightMaterial(intersectedObject);
+
+            // Find the fixture entry to get its name for the description
+            const fixtureEntry = visualizedFixtures.find(f => f.mesh === intersectedObject);
+            if (fixtureEntry && objectDescriptions[fixtureEntry.name]) {
+                // Pass the fixture name as the second parameter
+                showDescription(objectDescriptions[fixtureEntry.name], fixtureEntry.name);
+            } else if (fixtureEntry) {
+                // Pass the fixture name as the second parameter
+                showDescription("No description available for: " + fixtureEntry.name, fixtureEntry.name);
+            } else {
+                hideDescription(); // Should not happen if object is in highlightableObjects
+            }
+        }
+        // If intersectedObject === firstHit, do nothing (already highlighted, description shown)
+    } else { // No intersection
+        if (intersectedObject && isInFreeMode) { // Only clear in free mode
+            restoreOriginalMaterial(intersectedObject);
+            intersectedObject = null;
+            hideDescription();
+        }
+    }
+}
+
+const fixtureTitleElement = document.getElementById('fixture-title');
+
+function showDescription(text, fixtureName) {
+  if (descriptionBoxElement && descriptionTextElement && fixtureTitleElement) {
+    // Display the fixture name in the title box
+    if (fixtureName) {
+      // Convert camelCase to proper title format (e.g. toiletBowlUnder → Toilet Bowl Under)
+      const formattedName = fixtureName
+        .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+        .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
+      
+      fixtureTitleElement.innerHTML = formattedName;
+    } else {
+      fixtureTitleElement.innerHTML = '';
+    }
+
+    const cfuMatch = text.match(/\*\*CFU: ([\d,]+)\*\*/);
+    currentCFUValue = 0; // reset
+    if (cfuMatch) {
+      currentCFUValue = parseInt(cfuMatch[1].replace(/,/g, ''), 10);
+    }
+
+    let cfuColor = '#00cc66'; // default green
+    if (currentCFUValue > 900) {
+      cfuColor = '#ff0000'; // red (very high)
+    } else if (currentCFUValue > 300) {
+      cfuColor = '#ff9900'; // orange (high)
+    } else if (currentCFUValue > 100) {
+      cfuColor = '#b87333'; // sienna brown (moderate-high)
+    } else if (currentCFUValue > 50) {
+      cfuColor = '#a64ca6'; // purple (moderate)
+    }
+
+    const formattedText = text
+      .replace(/\*\*CFU: (.*?)\*\*/, `<strong style="color: ${cfuColor}; font-size: 38px;">CFU: $1</strong>`)
+      .replace(/\n/g, '<br>');
+    
+    descriptionTextElement.innerHTML = formattedText;
+    descriptionBoxElement.style.display = 'block';
+    descriptionBoxElement.style.pointerEvents = !isInFreeMode ? 'auto' : 'none';
+  }
+}
+
+
+function hideDescription() {
+  if (descriptionBoxElement) {
+    descriptionBoxElement.style.display = 'none';
+    if (fixtureTitleElement) {
+      fixtureTitleElement.innerHTML = '';
+    }
+  }
+}
+
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            // Only allow movement if in free exploration mode and not currently moving between fixtures
+            if (controls.isLocked && isInFreeMode && !cameraMoving) {
+                updateMovement(delta);
+                checkIntersections(); // Perform raycasting for highlighting
+            } else if (!isInFreeMode || cameraMoving) {
+                // Don't process movement when in guided mode or moving between fixtures
+                // But still check for intersections during guided navigation
+                if (!cameraMoving) {
+                    checkIntersections();
+                }
+            } else {
+                // Explicitly ensure highlight is removed if controls are not locked
+                if (intersectedObject && isInFreeMode) {
+                    restoreOriginalMaterial(intersectedObject);
+                    intersectedObject = null;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Utility Functions ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Initialize DOM elements ---
+        function initDOMElements() {
+            // Get existing UI elements
+            descriptionBoxElement = document.getElementById('description-box');
+            descriptionTextElement = document.getElementById('cfu-header');
+            descriptionTextElement = document.getElementById('description-text');
+
+            // Get navigation controls
+            const prevButton = document.getElementById('prev-button');
+            const nextButton = document.getElementById('next-button');
+            const explorationToggle = document.getElementById('exploration-toggle');
+
+            // Add event listeners for navigation buttons
+            prevButton.addEventListener('click', () => navigateFixtures('prev'));
+            nextButton.addEventListener('click', () => navigateFixtures('next'));
+            explorationToggle.addEventListener('click', toggleExplorationMode);
+
+            // Handle starting overlay
+            const overlay = document.getElementById('start-overlay');
+            const overlayNextButton = document.getElementById('overlay-next-button');
+            
+            overlayNextButton.addEventListener('click', () => {
+                document.getElementById('next-button').click();
+                overlay.style.display = 'none';
+
+                // Force free exploration OFF
+                if (isInFreeMode) toggleExplorationMode(); // only toggle if it's ON
+            });
+
+        }
+
+
+        // --- Navigation Functions ---
+        // Setup ordered fixtures array for navigation
+        function setupNavigableFixtures() {
+            // Filter out fixtures we want to navigate between (important ones)
+            // This can be customized based on which fixtures are most interesting
+        const fixtureNames = [
+            'toiletBowlUnder', 'toiletSeat', 'toiletFlushButton', 'sinkBasinWalls',
+            'sinkTap', 'radiatorBody', 'mirrorSurface', 
+            'handDryerBody', 'wasteBinBody', 'tpDispenserRoll', 'curvedHandRail', 
+            'ventBase', 'floor', 'backWall', 'ceiling'
+        ];
+
+            // Create an array of navigable fixtures from the visualizedFixtures array
+            // that match the names in fixtureNames
+            return visualizedFixtures.filter(fixture => 
+                fixtureNames.includes(fixture.name) && fixture.mesh
+            );
+        }
+        
+ 
+        // Navigate to next/prev fixture
+        function navigateFixtures(direction) {
+            // Allow a force-reset of camera movement if it's been stuck for over 2 seconds
+            if (cameraMoving) {
+                const now = performance.now();
+                
+                // If this is the first button click while camera is moving, record the time
+                if (!window._cameraMovingStartTime) {
+                    window._cameraMovingStartTime = now;
+                    return; // Don't proceed this time
+                }
+                
+                // If it's been more than 2 seconds since the first click, force reset
+                if (now - window._cameraMovingStartTime > 2000) {
+                    console.log("Force resetting camera movement state");
+                    cameraMoving = false;
+                    window._cameraMovingStartTime = null;
+                } else {
+                    return; // Still waiting for timeout
+                }
+            } else {
+                // Reset the timer when we're not in a moving state
+                window._cameraMovingStartTime = null;
+            }
+            
+            const navigableFixtures = setupNavigableFixtures();
+            if (navigableFixtures.length === 0) return;
+            
+            // Update current index based on direction
+            if (direction === 'next') {
+                currentFixtureIndex = (currentFixtureIndex + 1) % navigableFixtures.length;
+            } else {
+                currentFixtureIndex = (currentFixtureIndex - 1 + navigableFixtures.length) % navigableFixtures.length;
+            }
+            
+            // Get target fixture
+            const targetFixture = navigableFixtures[currentFixtureIndex];
+            
+            // Use a counter to track animation failures
+            if (!window._animationFailureCount) {
+                window._animationFailureCount = 0;
+            }
+            
+            // If we've had too many failures, use the direct positioning
+            if (window._animationFailureCount > 1) {
+                console.log("Using direct camera positioning due to previous failures");
+                directlyPositionCamera(targetFixture);
+            } else {
+                // Try the animated approach
+                try {
+                    moveCameraToFixture(targetFixture);
+                } catch (error) {
+                    console.error("Error in camera movement, falling back to direct positioning:", error);
+                    window._animationFailureCount++;
+                    directlyPositionCamera(targetFixture);
+                }
+            }
+        }
+
+        // Define specific target camera angles (Euler angles in degrees) for each fixture 
+        // !!!Ensure all and each x,y,z positions are defined OR ELSE WEIRD STUFF WILL HAPPEN
+        const fixtureCameraAngles = {
+            backWall: { x:0, y:0, z: 0},
+            toiletBowlUnder: { x: 0, y: 0, z: 0 },
+            toiletSeat: { x: -60, y: 0, z: 0 },
+            toiletFlushButton: { x: 10, y: 100 },
+            sinkBasinWalls: { x: -50, y: 0, z: 0 },
+            sinkTap: { x: -50, y: 0, z:0 },
+            radiatorBody: { x: 25, y: 180, z: 0 },
+            mirrorSurface: { x: 0, y: 0, z: 0 },
+            handDryerBody: { x: 0, y: 80, z: 0 },
+            wasteBinBody: { x: 30, y: 180, z: 0 },
+            tpDispenserRoll: { x: 0, y: -80, z: 0 },
+            curvedHandRail: { x: 0, y: -80, z: 0 },
+            ventBase: { x: 80, y: 0, z: 0 }
+        };
+
+        // Optional: Customize camera height (Y-axis)
+        const fixtureCameraHeights = {
+            backWall: 0.5,
+            toiletBowlUnder: 0.5,
+            toiletSeat: 1.1,
+            toiletFlushButton: 1.4,
+            sinkBasinWalls: 1.1,
+            sinkTap: 1.2,
+            radiatorBody: 1.0,
+            mirrorSurface: 1.5,
+            handDryerBody: 1.1,
+            wasteBinBody: 1.0,
+            tpDispenserRoll: 0.8,
+            curvedHandRail: 0.5,
+            ventBase: 3.6
+        };
+
+        // Optional: Customize camera height relative offset
+        const fixtureCameraOffsets = {
+            backWall: { x:0, y:0, z: 1},
+            toiletBowlUnder: { x: 0, y: 0.5, z: 0.9 },
+            toiletSeat: { x: 0, y: 0, z: 0.5 },
+            toiletFlushButton: { x: 0, y: 0, z: 0.11},
+            mirrorSurface: { x: 0, y: 0, z: 1 },
+            radiatorBody: { x: 0, y: 0, z: -1 },
+            sinkBasinWalls: { x: 0, y: 0, z: 0.5 },
+            sinkTap: { x:0, y: 0, z: 0.5 },
+            handDryerBody: { x: 0.5, y: 0, z: 0 },
+            wasteBinBody: { x: 0, y: 0, z: -1 },
+            curvedHandRail: { x: -1, y: 0, z: 0 },
+            tpDispenserRoll: { x: -0.5, y: 0, z: 0.2 },
+            ventBase: { x: 0, y: 0, z: 0 }
+        };
+        
+        // Move camera to focus on a fixture
+        function moveCameraToFixture(fixture) {
+            if (!fixture || !fixture.mesh) {
+                console.error("Invalid fixture provided to moveCameraToFixture");
+                return;
+            }
+            
+            // If in free mode, temporarily disable it for guided movement
+            if (isInFreeMode) {
+                // Store the current state to restore later
+                originalControlsEnabled = controls.isLocked;
+                // Unlock controls to allow automatic camera movement
+                controls.unlock();
+            }
+            
+            // Mark that camera is moving
+            cameraMoving = true;
+            
+            try {
+                // Set a safety timeout to ensure cameraMoving gets reset
+                const safetyTimeout = setTimeout(() => {
+                    console.log("Safety timeout triggered - resetting camera movement flag");
+                    cameraMoving = false;
+                }, 2000); // 2 second safety
+                
+                // Get target position (center of the mesh)
+                const targetMesh = fixture.mesh;
+                
+                // Check if mesh geometry exists and initialize bounding box
+                if (!targetMesh.geometry) {
+                    console.error("Fixture mesh has no geometry:", fixture.name);
+                    cameraMoving = false;
+                    return;
+                }
+                
+                // Initialize bounding box if not already done
+                if (!targetMesh.geometry.boundingBox) {
+                    targetMesh.geometry.computeBoundingBox();
+                }
+                
+                const center = new THREE.Vector3();
+                targetMesh.geometry.boundingBox.getCenter(center);
+                
+                // Convert to world position
+                const worldPosition = targetMesh.localToWorld(center.clone());
+                
+                // Calculate camera position: looking at the fixture from a slight distance/angle
+                const direction = new THREE.Vector3();
+                const boundingBoxSize = new THREE.Vector3();
+                targetMesh.geometry.boundingBox.getSize(boundingBoxSize);
+                const distance = boundingBoxSize.length();
+                
+                // Position camera at a distance away from the object in a reasonable direction
+                let targetCameraPosition;
+                
+                // Determine a good viewing position (this can be customized per object if needed)
+                
+                targetCameraPosition = worldPosition.clone();
+
+                // Apply custom offset if defined
+                if (fixtureCameraOffsets[fixture.name]) {
+                    const offset = fixtureCameraOffsets[fixture.name];
+                    targetCameraPosition.add(new THREE.Vector3(offset.x, offset.y, offset.z));
+                }
+
+                // If custom camera height is defined for this fixture, override Y
+                if (fixtureCameraHeights[fixture.name] !== undefined) {
+                    targetCameraPosition.y = fixtureCameraHeights[fixture.name];
+                }
+                
+                // Store initial camera position and rotation for interpolation
+                const startPosition = new THREE.Vector3().copy(camera.position);
+                const startRotation = new THREE.Quaternion().copy(camera.quaternion) ;
+                
+                // Create target rotation: camera looking at fixture
+                // Create target rotation based on specific angle if defined
+                const tempCamera = new THREE.Object3D();
+                tempCamera.position.copy(targetCameraPosition);
+
+                if (fixtureCameraAngles[fixture.name]) {
+                    const angles = fixtureCameraAngles[fixture.name];
+                    const euler = new THREE.Euler(
+                        THREE.MathUtils.degToRad(angles.x),
+                        THREE.MathUtils.degToRad(angles.y),
+                        THREE.MathUtils.degToRad(angles.z)
+                    );
+                    tempCamera.setRotationFromEuler(euler);
+                } else {
+                    // Default behavior: look at target
+                    tempCamera.lookAt(worldPosition);
+                }
+                
+                // Animation duration
+                const duration = 1000; // 1 second
+                const startTime = performance.now();
+                
+                // Show description
+                if (fixture.name && objectDescriptions[fixture.name]) {
+                    showDescription(objectDescriptions[fixture.name], fixture.name);
+                }
+                
+                // Highlight the object
+                if (intersectedObject) {
+                    restoreOriginalMaterial(intersectedObject);
+                }
+                intersectedObject = fixture.mesh;
+                applyHighlightMaterial(intersectedObject);
+                
+                // Smooth animation function
+                function animateCamera(time) {
+                    try {
+                        const elapsed = time - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        // Easing function for smoother motion
+                        const easedProgress = 1 - Math.cos(progress * Math.PI / 2);
+                        
+                        // Ensure all objects are defined before using them
+                        if (!startPosition || !targetCameraPosition || !startRotation || !tempCamera || !tempCamera.quaternion) {
+                            console.error("Animation error: One of the required objects is undefined");
+                            cameraMoving = false;
+                            clearTimeout(safetyTimeout);
+                            return;
+                        }
+                        
+                        // Create new vectors and quaternions rather than modifying existing ones
+                        const newPosition = new THREE.Vector3();
+                        const newRotation = new THREE.Quaternion();
+                        
+                        try {
+                            // Safely interpolate position - do component-wise interpolation
+                            newPosition.x = startPosition.x + (targetCameraPosition.x - startPosition.x) * easedProgress;
+                            newPosition.y = startPosition.y + (targetCameraPosition.y - startPosition.y) * easedProgress;
+                            newPosition.z = startPosition.z + (targetCameraPosition.z - startPosition.z) * easedProgress;
+                            
+                            // Safely interpolate rotation - do slerpQuaternions manually if needed
+                            newRotation.copy(startRotation);
+                            newRotation.slerp(tempCamera.quaternion, easedProgress);
+                        } catch (interpError) {
+                            console.error("Interpolation error:", interpError);
+                            cameraMoving = false;
+                            clearTimeout(safetyTimeout);
+                            return;
+                        }
+                        
+                        // Apply new position and rotation to camera - with even more careful checks
+                        if (camera && camera.position && camera.quaternion &&
+                            newPosition && typeof newPosition.x === 'number' && 
+                            typeof newPosition.y === 'number' && 
+                            typeof newPosition.z === 'number') {
+                            
+                            // Check for NaN values
+                            if (!isNaN(newPosition.x) && !isNaN(newPosition.y) && !isNaN(newPosition.z)) {
+                                camera.position.set(newPosition.x, newPosition.y, newPosition.z);
+                            }
+                        }
+                        
+                        if (camera && camera.quaternion && 
+                            newRotation && typeof newRotation.x === 'number' && 
+                            typeof newRotation.y === 'number' && 
+                            typeof newRotation.z === 'number' && 
+                            typeof newRotation.w === 'number') {
+                            
+                            // Check for NaN values
+                            if (!isNaN(newRotation.x) && !isNaN(newRotation.y) && 
+                                !isNaN(newRotation.z) && !isNaN(newRotation.w)) {
+                                camera.quaternion.set(newRotation.x, newRotation.y, newRotation.z, newRotation.w);
+                            }
+                        }
+                        
+                        if (progress < 1) {
+                            // Continue animation
+                            requestAnimationFrame(animateCamera);
+                        } else {
+                            // Animation complete
+                            cameraMoving = false;
+                            clearTimeout(safetyTimeout); // Clear the safety timeout
+                        }
+                    } catch (error) {
+                        console.error("Error in animation:", error);
+                        cameraMoving = false;
+                        clearTimeout(safetyTimeout);
+                    }
+                }
+                
+                // Start animation
+                requestAnimationFrame(animateCamera);
+            } catch (error) {
+                console.error("Error setting up camera movement:", error);
+                cameraMoving = false;
+            }
+        }
+
+        // Toggle between free exploration and guided mode
+        function toggleExplorationMode() {
+            const toggle = document.getElementById('exploration-toggle');
+            isInFreeMode = !isInFreeMode;
+            
+            if (isInFreeMode) {
+                toggle.textContent = 'Toggle Free Exploration: ON';
+                toggle.classList.add('active');
+                
+                // If camera was moving, let it finish
+                if (!cameraMoving) {
+                    controls.lock(); // Enable first person controls
+                }
+            } else {
+                toggle.textContent = 'Toggle Free Exploration: OFF';
+                toggle.classList.remove('active');
+                
+                // If we're not currently moving between fixtures, go to current fixture
+                if (!cameraMoving) {
+                    const navigableFixtures = setupNavigableFixtures();
+                    if (navigableFixtures.length > 0) {
+                        moveCameraToFixture(navigableFixtures[currentFixtureIndex]);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
