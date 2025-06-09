@@ -1,15 +1,20 @@
-# UAL-CCI-Data-Visualization-Toilet
-How Dirty Is Your Toilet?
-Step into a microscopic world inside the toilet.
-        
-We're visualizing Colony Forming Units (CFUs)— a scientific way to count clusters of live bacteria that can grow and multiply.
+# 🚽 UAL-CCI Data Visualization: *How Dirty Is Your Toilet?*
 
-Each glowing spot you see represents a bacterial colony found in common toilet areas.
-Some surfaces may surprise you...
+**Step into the unseen world of your toilet.**  
+This project visualizes *Colony Forming Units (CFUs)* — clusters of live bacteria that multiply and form colonies — using an immersive 3D data representation.
 
-3D Toilet Bacteria Data Visualization by Wong Jo-Hann
+Each glowing spot represents a bacterial colony discovered on everyday toilet surfaces.  
+Some of the most contaminated areas may surprise you...
 
-- Made with HTML, CSS and Javascript
-- Should run smoothly on web browser
-- Currently optimized for PC use
+---
+
+### 🧪 About the Project
+
+**Title:** *3D Toilet Bacteria Data Visualization*  
+**By:** Wong Jo-Hann
+
+- 🔧 Built with **HTML, CSS, and JavaScript**
+- 🌐 Designed for **modern web browsers**
+- 🖥️ **Optimized for desktop viewing**
+
 
